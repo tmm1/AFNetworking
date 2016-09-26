@@ -4,7 +4,7 @@
 
 [![Build Status](https://travis-ci.org/AFNetworking/AFNetworking.svg)](https://travis-ci.org/AFNetworking/AFNetworking)
 [![codecov.io](https://codecov.io/github/AFNetworking/AFNetworking/coverage.svg?branch=master)](https://codecov.io/github/AFNetworking/AFNetworking?branch=master)
-[![Cocoapods Compatible](https://img.shields.io/cocoapods/v/AFNetworking.svg)](https://img.shields.io/cocoapods/v/AFNetworking.svg)
+[![CocoaPods Compatible](https://img.shields.io/cocoapods/v/AFNetworking.svg)](https://img.shields.io/cocoapods/v/AFNetworking.svg)
 [![Carthage Compatible](https://img.shields.io/badge/Carthage-compatible-4BC51D.svg?style=flat)](https://github.com/Carthage/Carthage)
 [![Platform](https://img.shields.io/cocoapods/p/AFNetworking.svg?style=flat)](http://cocoadocs.org/docsets/AFNetworking)
 [![Twitter](https://img.shields.io/badge/twitter-@AFNetworking-blue.svg?style=flat)](http://twitter.com/AFNetworking)
@@ -51,7 +51,9 @@ To integrate AFNetworking into your Xcode project using CocoaPods, specify it in
 source 'https://github.com/CocoaPods/Specs.git'
 platform :ios, '8.0'
 
+target 'TargetName' do
 pod 'AFNetworking', '~> 3.0'
+end
 ```
 
 Then, run the following command:

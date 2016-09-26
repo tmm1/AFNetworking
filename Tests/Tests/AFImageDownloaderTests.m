@@ -1,5 +1,5 @@
 // AFImageDownloaderTests.m
-// Copyright (c) 2011–2016 Alamofire Software Foundation (http://alamofire.org/)
+// Copyright (c) 2011–2016 Alamofire Software Foundation ( http://alamofire.org/ )
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -62,6 +62,29 @@
                                    failure:nil];
     self.downloader = nil;
     XCTAssertNil(self.downloader, @"Downloader should be nil");
+}
+
+- (void)testThatImageDownloaderReturnsNilWithInvalidURL
+{
+    NSURL *pngURL = [NSURL URLWithString:@"https://httpbin.org/image/png"];
+    NSMutableURLRequest *mutableURLRequest = [NSMutableURLRequest requestWithURL:pngURL];
+    [mutableURLRequest setURL:nil];
+    /** NSURLRequest nor NSMutableURLRequest can be initialized with a nil URL, 
+     *  but NSMutableURLRequest can have its URL set to nil 
+     **/
+    NSURLRequest *invalidRequest = [mutableURLRequest copy];
+    XCTestExpectation *expectation = [self expectationWithDescription:@"Request should fail"];
+    AFImageDownloadReceipt *downloadReceipt = [self.downloader
+                                               downloadImageForURLRequest:invalidRequest
+                                               success:nil
+                                               failure:^(NSURLRequest * _Nonnull request, NSHTTPURLResponse * _Nullable response, NSError * _Nonnull error) {
+                                                   XCTAssertNotNil(error);
+                                                   XCTAssertTrue([error.domain isEqualToString:NSURLErrorDomain]);
+                                                   XCTAssertTrue(error.code == NSURLErrorBadURL);
+                                                   [expectation fulfill];
+                                               }];
+    [self waitForExpectationsWithCommonTimeoutUsingHandler:nil];
+    XCTAssertNil(downloadReceipt, @"downloadReceipt should be nil");
 }
 
 - (void)testThatImageDownloaderCanDownloadImage {
@@ -157,13 +180,13 @@
 - (void)testThatImageBehindRedirectCanBeDownloaded {
     XCTestExpectation *expectation = [self expectationWithDescription:@"image download should succeed"];
     NSURL *redirectURL = [self.jpegRequest URL];
-    NSURLRequest *request = [NSURLRequest requestWithURL:redirectURL];
+    NSURLRequest *downloadRequest = [NSURLRequest requestWithURL:redirectURL];
 
     __block NSHTTPURLResponse *urlResponse = nil;
     __block UIImage *responseImage = nil;
 
     [self.downloader
-     downloadImageForURLRequest:request
+     downloadImageForURLRequest:downloadRequest
      success:^(NSURLRequest * _Nonnull request, NSHTTPURLResponse * _Nullable response, UIImage * _Nonnull responseObject) {
          urlResponse = response;
          responseImage = responseObject;
@@ -343,6 +366,44 @@
     XCTAssertNotNil(responseImage);
 }
 
+- (void)testThatItCanDownloadAndCancelAndDownloadAgain {
+    NSArray *imageURLStrings = @[
+                                 @"https://secure.gravatar.com/avatar/5a105e8b9d40e1329780d62ea2265d8a?d=identicon",
+                                 @"https://secure.gravatar.com/avatar/6a105e8b9d40e1329780d62ea2265d8a?d=identicon",
+                                 @"https://secure.gravatar.com/avatar/7a105e8b9d40e1329780d62ea2265d8a?d=identicon",
+                                 @"https://secure.gravatar.com/avatar/8a105e8b9d40e1329780d62ea2265d8a?d=identicon",
+                                 @"https://secure.gravatar.com/avatar/9a105e8b9d40e1329780d62ea2265d8a?d=identicon"
+                                 ];
+
+    for (NSString *imageURLString in imageURLStrings) {
+        XCTestExpectation *expectation = [self expectationWithDescription:[NSString stringWithFormat:@"Request %@ should be cancelled", imageURLString]];
+        AFImageDownloadReceipt *receipt = [self.downloader
+                                           downloadImageForURLRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:imageURLString]]
+                                           success:^(NSURLRequest * _Nonnull request, NSHTTPURLResponse * _Nullable response, UIImage * _Nonnull responseObject) {
+                                               XCTFail(@"Request %@ succeeded when it should have failed", request);
+                                           }
+                                           failure:^(NSURLRequest * _Nonnull request, NSHTTPURLResponse * _Nullable response, NSError * _Nonnull error) {
+                                               XCTAssertTrue([error.domain isEqualToString:NSURLErrorDomain]);
+                                               XCTAssertTrue([error code] == NSURLErrorCancelled);
+                                               [expectation fulfill];
+                                           }];
+        [self.downloader cancelTaskForImageDownloadReceipt:receipt];
+    }
+
+    for (NSString *imageURLString in imageURLStrings) {
+        XCTestExpectation *expectation = [self expectationWithDescription:[NSString stringWithFormat:@"Request %@ should succeed", imageURLString]];
+        [self.downloader
+         downloadImageForURLRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:imageURLString]]
+         success:^(NSURLRequest * _Nonnull request, NSHTTPURLResponse * _Nullable response, UIImage * _Nonnull responseObject) {
+             [expectation fulfill];
+         } failure:^(NSURLRequest * _Nonnull request, NSHTTPURLResponse * _Nullable response, NSError * _Nonnull error) {
+             XCTFail(@"Request %@ failed with error %@", request, error);
+         }];
+    }
+
+    [self waitForExpectationsWithCommonTimeoutUsingHandler:nil];
+}
+
 #pragma mark - Threading
 - (void)testThatItAlwaysCallsTheSuccessHandlerOnTheMainQueue {
     XCTestExpectation *expectation = [self expectationWithDescription:@"image download should succeed"];
@@ -360,11 +421,11 @@
 
 - (void)testThatItAlwaysCallsTheFailureHandlerOnTheMainQueue {
     NSURL *url = [NSURL URLWithString:@"https://httpbin.org/status/404"];
-    NSURLRequest *request = [NSURLRequest requestWithURL:url];
+    NSURLRequest *notFoundRequest = [NSURLRequest requestWithURL:url];
     XCTestExpectation *expectation = [self expectationWithDescription:@"image download should fail"];
     __block BOOL failureIsOnMainThread = false;
     [self.downloader
-     downloadImageForURLRequest:request
+     downloadImageForURLRequest:notFoundRequest
      success:nil
      failure:^(NSURLRequest * _Nonnull request, NSHTTPURLResponse * _Nullable response, NSError * _Nonnull error) {
          failureIsOnMainThread = [[NSThread currentThread] isMainThread];
@@ -374,7 +435,7 @@
     XCTAssertTrue(failureIsOnMainThread);
 }
 
-#pragma marl - misc
+#pragma mark - misc
 
 - (void)testThatReceiptIDMatchesReturnedID {
     NSUUID *receiptId = [NSUUID UUID];
@@ -385,7 +446,6 @@
                                         failure:nil];
     XCTAssertEqual(receiptId, receipt.receiptID);
     [self.downloader cancelTaskForImageDownloadReceipt:receipt];
-
 }
 
 @end
